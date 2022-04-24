@@ -1,14 +1,3 @@
-# This repository contains the main data for a MPC/AMPC for the BES of a Single-Family House and has been developed during my master thesis at the EON ERC (RWTH Aachen University)
-
-Necessary Setup:
-
-For sumulation: 
-- Dymola 2021
-- Visual Studio 2019
-
-The optimization was carried out using the Python IDE PyCharm 2021.
-The optimziation environment setup contains the following packages:
-
 attrs	21.2.0	
 blas	1.0	
 bokeh	2.4.2	
@@ -162,5 +151,4 @@ yaml	0.2.5
 zict	2.0.0	
 zipp	3.6.0	
 zlib	1.2.11	
-zstd	1.4.9	
-
+zstd	1.4.9
