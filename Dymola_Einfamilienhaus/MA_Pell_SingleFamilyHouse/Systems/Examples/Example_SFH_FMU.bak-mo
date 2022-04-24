@@ -1,0 +1,138 @@
+within MA_Pell_SingleFamilyHouse.Systems.Examples;
+model Example_SFH_FMU
+  SFH_FMU sFH_FMU(SOC_Bat_Init=30, n_mod=63)
+    annotation (Placement(transformation(extent={{-60,-40},{60,20}})));
+  Modelica.Blocks.Sources.RealExpression realExpression[3](y={1.0,0.0,0.0})
+    annotation (Placement(transformation(extent={{-194,60},{-174,80}})));
+  Modelica.Blocks.Sources.RealExpression realExpression1[3](y={2400,0,0})
+    annotation (Placement(transformation(extent={{-194,40},{-174,60}})));
+
+  AixLib.BoundaryConditions.WeatherData.ReaderTMY3 weaDat(filNam=
+        Modelica.Utilities.Files.loadResource(
+        "modelica://MA_Pell_SingleFamilyHouse/Data/TRY2015_524528132978_Wint_City_Berlin.mos"))
+    "Weather data reader"
+    annotation (Placement(transformation(extent={{-194,20},{-180,36}})));
+  AixLib.BoundaryConditions.WeatherData.Bus
+      weaBus "Weather data bus" annotation (Placement(transformation(extent={{-162,18},
+            {-142,38}}),         iconTransformation(extent={{190,-10},{210,10}})));
+  Modelica.Blocks.Sources.CombiTimeTable tableEV(
+    final tableOnFile=true,
+    final extrapolation=Modelica.Blocks.Types.Extrapolation.Periodic,
+    final tableName="EVDem",
+    final fileName=Modelica.Utilities.Files.loadResource("modelica://MA_Pell_SingleFamilyHouse/Data/ev_dem_quarterly.txt"),
+    columns=2:2) "Profiles for internal gains" annotation (Placement(
+        transformation(
+        extent={{7,7},{-7,-7}},
+        rotation=180,
+        origin={-187,-15})));
+
+  Modelica.Blocks.Sources.CombiTimeTable tableElec(
+    final tableOnFile=true,
+    final extrapolation=Modelica.Blocks.Types.Extrapolation.Periodic,
+    final tableName="DomElecDem",
+    final fileName=Modelica.Utilities.Files.loadResource("modelica://MA_Pell_SingleFamilyHouse/Data/elec_dom_quarterly.txt"),
+    columns=2:2) "Profiles for internal gains" annotation (Placement(
+        transformation(
+        extent={{7,7},{-7,-7}},
+        rotation=180,
+        origin={-187,5})));
+
+  Modelica.Blocks.Math.Gain gain(k=1000)
+    annotation (Placement(transformation(extent={{-158,0},{-148,10}})));
+  Modelica.Blocks.Math.Gain gain1(k=1000)
+    annotation (Placement(transformation(extent={{-158,-20},{-148,-10}})));
+  Modelica.Blocks.Math.Gain gainIntGains[3](each k=1)
+    "Profiles for internal gains" annotation (Placement(transformation(
+        extent={{6,6},{-6,-6}},
+        rotation=180,
+        origin={-152,-38})));
+  Modelica.Blocks.Sources.CombiTimeTable tableDHW(
+    final tableOnFile=false,
+    final table=sFH_FMU.DHWProfile.table,
+    final columns=2:5,
+    final smoothness=Modelica.Blocks.Types.Smoothness.ConstantSegments,
+    final extrapolation=Modelica.Blocks.Types.Extrapolation.Periodic)
+    "Read the input data from the given file. " annotation (Placement(visible=
+         true, transformation(
+        extent={{-7,-7},{7,7}},
+        rotation=0,
+        origin={-187,-63})));
+  Modelica.Blocks.Math.UnitConversions.From_degC
+                                         tableInternalGains2
+    "Profiles for internal gains"
+    annotation (Placement(transformation(extent={{6,6},{-6,-6}},
+        rotation=180,
+        origin={-152,-62})));
+  Modelica.Blocks.Sources.CombiTimeTable tableInternalGains(
+    final tableOnFile=true,
+    final extrapolation=Modelica.Blocks.Types.Extrapolation.Periodic,
+    final tableName="Internals",
+    final fileName=Modelica.Utilities.Files.loadResource(
+        "modelica://MA_Pell_SingleFamilyHouse/Data/InternalGains_ResidentialBuildingTabulaMulti.txt"),
+    columns=2:4) "Profiles for internal gains"
+    annotation (Placement(transformation(extent={{7,7},{-7,-7}},
+        rotation=180,
+        origin={-187,-39})));
+
+equation
+  connect(realExpression[1].y, sFH_FMU.PV_Distr_Use) annotation (Line(points={{-173,70},
+          {-98,70},{-98,20},{-80,20},{-80,19.3333},{-60,19.3333}},     color={0,
+          0,127}));
+  connect(realExpression[3].y, sFH_FMU.PV_Distr_ChBat) annotation (Line(points={{-173,70},
+          {-98,70},{-98,14.3333},{-60,14.3333}},              color={0,0,127}));
+  connect(realExpression[2].y, sFH_FMU.PV_Distr_FeedIn) annotation (Line(points={{-173,70},
+          {-98,70},{-98,16},{-60,16},{-60,17}},     color={0,0,127}));
+  connect(realExpression1[1].y, sFH_FMU.BAT_Pow_Use) annotation (Line(points={{-173,50},
+          {-106,50},{-106,11.3333},{-60,11.3333}},   color={0,0,127}));
+  connect(realExpression1[2].y, sFH_FMU.BAT_Pow_FeedIn) annotation (Line(points={{-173,50},
+          {-106,50},{-106,8},{-60,8},{-60,8.33333}},      color={0,0,127}));
+  connect(realExpression1[3].y, sFH_FMU.BAT_Pow_Ch) annotation (Line(points={{-173,50},
+          {-106,50},{-106,6},{-60,6},{-60,5.66667}},     color={0,0,127}));
+  connect(weaDat.weaBus, weaBus) annotation (Line(
+      points={{-180,28},{-152,28}},
+      color={255,204,51},
+      thickness=0.5));
+  connect(tableElec.y[1], gain.u)
+    annotation (Line(points={{-179.3,5},{-159,5}},     color={0,0,127}));
+  connect(gain.y, sFH_FMU.ElecDemand) annotation (Line(points={{-147.5,5},{-120,
+          5},{-120,-4.66667},{-60,-4.66667}},
+                                 color={0,0,127}));
+  connect(tableEV.y[1], gain1.u) annotation (Line(points={{-179.3,-15},{-159,
+          -15}},      color={0,0,127}));
+  connect(gain1.y, sFH_FMU.EVDemand) annotation (Line(points={{-147.5,-15},{
+          -113.75,-15},{-113.75,-7.66667},{-60,-7.66667}},
+                                   color={0,0,127}));
+  connect(tableDHW.y[4],tableInternalGains2. u) annotation (Line(points={{-179.3,
+          -63},{-172,-63},{-172,-62},{-159.2,-62}},      color={0,0,127}));
+  connect(tableInternalGains.y,gainIntGains. u) annotation (Line(points={{-179.3,
+          -39},{-179.3,-38},{-159.2,-38}},    color={0,0,127}));
+  connect(gainIntGains.y, sFH_FMU.IntGains) annotation (Line(points={{-145.4,
+          -38},{-114,-38},{-114,-10.6667},{-60,-10.6667}},
+                                                       color={0,0,127}));
+  connect(tableInternalGains2.y, sFH_FMU.TDem_DHW) annotation (Line(points={{-145.4,
+          -62},{-108,-62},{-108,-17.6667},{-60,-17.6667}},      color={0,0,127}));
+  connect(tableDHW.y[2], sFH_FMU.mFlow_DHW) annotation (Line(points={{-179.3,
+          -63},{-170,-63},{-170,-50},{-110,-50},{-110,-14},{-60,-14}},
+        color={0,0,127}));
+  connect(weaBus.TDryBul, sFH_FMU.T_air) annotation (Line(
+      points={{-152,28},{-110,28},{-110,3.33333},{-60,3.33333}},
+      color={255,204,51},
+      thickness=0.5));
+  connect(weaBus.HGloHor, sFH_FMU.H_GloHor) annotation (Line(
+      points={{-152,28},{-110,28},{-110,-2},{-60,-2}},
+      color={255,204,51},
+      thickness=0.5));
+  connect(weaBus.winSpe, sFH_FMU.winSpe) annotation (Line(
+      points={{-152,28},{-110,28},{-110,0.666667},{-60,0.666667}},
+      color={255,204,51},
+      thickness=0.5));
+  annotation (Icon(coordinateSystem(preserveAspectRatio=false, extent={{-200,
+            -100},{200,100}})),                                  Diagram(
+        coordinateSystem(preserveAspectRatio=false, extent={{-200,-100},{200,
+            100}})),
+    experiment(
+      StopTime=86400,
+      Interval=900,
+      Tolerance=1e-05,
+      __Dymola_Algorithm="Dassl"));
+end Example_SFH_FMU;

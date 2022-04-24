@@ -1,0 +1,306 @@
+within MA_Pell_SingleFamilyHouse.Systems.Examples;
+model SFH_FMU_UFH "Model with UFH transfer system"
+  extends BaseClasses.PartialBuildingEnergySystem_MPC(
+    redeclare Subsystems.Ventilation.NoVentilation Ventilation,
+    redeclare SimpleStudyOfHeatingRodEfficiency parameterStudy,
+    redeclare RecordsCollection.ExampleSystemParameters systemParameters(
+      TSup_nominal=308.15,
+      TSetRoomConst=294.15,
+      TOffNight=3,
+      nZones=1,
+      oneZoneParam=
+          MA_Pell_SingleFamilyHouse.Components.ResidentialBuilding.ResidentialBuildingUFH.ResidentialBuilding_DataBase.ResidentialBuilding_SingleDwellingNoFloor(
+           HeaterOn=false),
+      zoneParam=fill(systemParameters.oneZoneParam, systemParameters.nZones),
+      filNamIntGains=Modelica.Utilities.Files.loadResource(
+          "modelica://MA_Pell_SingleFamilyHouse/Data/InternalGains_ResidentialBuildingTabulaMulti.txt"),
+      DHWtapping=DHWtapping,
+      oneZoneParamUFH=
+          MA_Pell_SingleFamilyHouse.Components.ResidentialBuilding.ResidentialBuildingUFH.ResidentialBuilding_DataBase.ResidentialBuildingWFloor_SingleDwellingWithFloor(),
+      DHWProfile=DHWProfile),
+    redeclare Subsystems.Transfer.UFHTransferSystem Transfer,
+    redeclare Subsystems.Demand.DemandCase Demand(redeclare
+        Components.DHW.calcmFlowEquStatic calcmFlow),
+    redeclare Subsystems.Generation.GenerationHeatPumpAndHeatingRod Generation(
+      redeclare RecordsCollection.GenerationData.DummyHP heatPumpParameters,
+      redeclare RecordsCollection.GenerationData.DummyHR heatingRodParameters(
+          eta_hr=parameterStudy.efficiceny_heating_rod, Q_HR_Nom=parameterStudy.hr_nominal_power),
+      redeclare package Medium_eva = AixLib.Media.Air),
+    redeclare Subsystems.Control.Controller_MPC Control,
+    redeclare Subsystems.Distribution.DistributionTwoStorageParallel
+      Distribution(redeclare
+        RecordsCollection.StorageData.SimpleStorage.DummySimpleStorage
+        bufParameters, redeclare
+        RecordsCollection.StorageData.SimpleStorage.DummySimpleStorage
+        dhwParameters(V=Distribution.dhwParameters.V_dhw_day)));
+
+  Subsystems.Electricity.Electricity_PVandBAT Electricity(
+    timZon=weaDat.timZon,
+    SOC_Bat_Init=SOC_Bat_Init/100,
+    n_mod=n_mod,
+    data=data,
+    batteryData=batteryData,
+    nBat=nBat)
+    annotation (Placement(transformation(extent={{-200,100},{-120,180}})));
+
+  parameter MA_Pell_SingleFamilyHouse.Components.DHW.DHWProfile DHWtapping=
+    MA_Pell_SingleFamilyHouse.Components.DHW.DHWProfile.M annotation(Evaluate=false);
+  parameter MA_Pell_SingleFamilyHouse.RecordsCollection.DHW.PartialDHWTap DHWProfile=
+    MA_Pell_SingleFamilyHouse.RecordsCollection.DHW.ProfileM() annotation(Evaluate=false);
+  parameter Real SOC_Bat_Init=50 "State of Charge in %" annotation(Dialog(group="Battery"));
+  parameter AixLib.DataBase.SolarElectric.PVBaseDataDefinition data=
+    if IdentifierPV == 1 then AixLib.DataBase.SolarElectric.ShellSP70()
+    elseif IdentifierPV == 2 then AixLib.DataBase.SolarElectric.AleoS24185()
+    elseif IdentifierPV == 3 then AixLib.DataBase.SolarElectric.CanadianSolarCS6P250P()
+    elseif IdentifierPV == 4 then AixLib.DataBase.SolarElectric.QPlusBFRG41285()
+    elseif IdentifierPV == 5 then AixLib.DataBase.SolarElectric.SchuecoSPV170SME1()
+    else AixLib.DataBase.SolarElectric.SharpNUU235F2()
+    "PV Panel data definition" annotation ();
+  parameter ElectricalStorages.Data.BaseClasses.ElectricBatteryGeneral batteryData=
+    if IdentifierBAT == 1 then MA_Pell_SingleFamilyHouse.ElectricalStorages.Data.LithiumIon.LithiumIonViessmann()
+    elseif IdentifierBAT == 2 then MA_Pell_SingleFamilyHouse.ElectricalStorages.Data.LeadAcid.Chloride200Ah()
+    elseif IdentifierBAT == 3 then MA_Pell_SingleFamilyHouse.ElectricalStorages.Data.LeadAcid.LeadAcidGeneric()
+    elseif IdentifierBAT == 4 then MA_Pell_SingleFamilyHouse.ElectricalStorages.Data.LeadAcid.Long7Ah()
+    elseif IdentifierBAT == 5 then MA_Pell_SingleFamilyHouse.ElectricalStorages.Data.LithiumIon.LithiumIonAquion()
+    elseif IdentifierBAT == 6 then MA_Pell_SingleFamilyHouse.ElectricalStorages.Data.LithiumIon.LithiumIonTeslaPowerwall1()
+    else MA_Pell_SingleFamilyHouse.ElectricalStorages.Data.LithiumIon.LithiumIonTeslaPowerwall2()
+    "Characteristic data of the battery" annotation ();
+  parameter Integer nBat=3 "Number of batteries" annotation(Evaluate=false, Dialog(group="Battery"));
+  parameter Integer n_mod=3 "Number of connected PV modules" annotation(Evaluate=false, Dialog(group="PV"));
+  parameter Integer IdentifierPV=1 "defines data for PV module" annotation(Evaluate=false, Dialog(group="PV"));
+  parameter Integer IdentifierBAT=1 "defines data for Battery" annotation(Evaluate=false, Dialog(group="Battery"));
+
+  Modelica.Blocks.Interfaces.RealInput PV_Distr_FeedIn
+    annotation (Placement(transformation(extent={{-490,152},{-470,172}})));
+  Modelica.Blocks.Interfaces.RealInput PV_Distr_ChBat
+    annotation (Placement(transformation(extent={{-490,136},{-470,156}})));
+  Modelica.Blocks.Interfaces.RealInput PV_Distr_Use
+    annotation (Placement(transformation(extent={{-490,166},{-470,186}})));
+  Modelica.Blocks.Interfaces.RealInput power_use_BAT
+    annotation (Placement(transformation(extent={{-490,118},{-470,138}})));
+  Modelica.Blocks.Interfaces.RealInput power_to_grid_BAT
+    annotation (Placement(transformation(extent={{-490,100},{-470,120}})));
+  Modelica.Blocks.Interfaces.RealInput ch_BAT
+    annotation (Placement(transformation(extent={{-490,84},{-470,104}})));
+  Modelica.Blocks.Interfaces.RealInput ts_T_air(
+    final quantity="ThermodynamicTemperature",
+    final unit="K",
+    displayUnit="degC") annotation (Placement(transformation(extent={{-490,70},
+            {-470,90}}), iconTransformation(extent={{-490,70},{-470,90}})));
+  Modelica.Blocks.Interfaces.RealInput dem_elec annotation (Placement(
+        transformation(extent={{-490,22},{-470,42}}), iconTransformation(
+          extent={{-490,22},{-470,42}})));
+  Modelica.Blocks.Interfaces.RealInput dem_e_mob annotation (Placement(
+        transformation(extent={{-490,4},{-470,24}}), iconTransformation(
+          extent={{-490,4},{-470,24}})));
+  Modelica.Blocks.Interfaces.RealInput ts_sol_rad annotation (Placement(
+        transformation(extent={{-490,38},{-470,58}}), iconTransformation(
+          extent={{-490,38},{-470,58}})));
+
+  output Modelica.Blocks.Interfaces.RealOutput SOC_BAT
+    annotation (Placement(transformation(extent={{480,90},{500,110}})));
+  output Modelica.Blocks.Interfaces.RealOutput FeedIn
+    annotation (Placement(transformation(extent={{480,106},{500,126}})));
+  output Modelica.Blocks.Interfaces.RealOutput ElecFromGrid
+    annotation (Placement(transformation(extent={{480,126},{500,146}})));
+
+  output Modelica.Blocks.Interfaces.RealOutput PV_Pow_Use
+    annotation (Placement(transformation(extent={{480,176},{500,196}})));
+  output Modelica.Blocks.Interfaces.RealOutput PV_Pow_Ch
+    annotation (Placement(transformation(extent={{480,142},{500,162}})));
+  output Modelica.Blocks.Interfaces.RealOutput PV_Pow_FeedIn
+    annotation (Placement(transformation(extent={{480,158},{500,178}})));
+  Modelica.Blocks.Interfaces.RealInput mFlow_DHW annotation (Placement(
+        transformation(extent={{-490,-12},{-470,8}}),  iconTransformation(
+          extent={{-490,-12},{-470,8}})));
+  Modelica.Blocks.Interfaces.RealInput TDem_DHW annotation (Placement(
+        transformation(extent={{-490,-34},{-470,-14}}), iconTransformation(
+          extent={{-490,-34},{-470,-14}})));
+  Modelica.Blocks.Interfaces.RealInput ts_win_spe annotation (Placement(
+        transformation(extent={{-490,54},{-470,74}}), iconTransformation(
+          extent={{-490,54},{-470,74}})));
+  Modelica.Blocks.Interfaces.RealInput x_HP_heat
+                                                annotation (Placement(
+        transformation(extent={{-492,-114},{-472,-94}}),iconTransformation(
+          extent={{-488,-172},{-468,-152}})));
+  Modelica.Blocks.Interfaces.RealInput x_HP_cool
+                                                annotation (Placement(
+        transformation(extent={{-492,-132},{-472,-112}}),
+                                                        iconTransformation(
+          extent={{-488,-200},{-468,-180}})));
+  Modelica.Blocks.Interfaces.RealInput T_supply_UFH annotation (Placement(
+        transformation(extent={{-492,-150},{-472,-130}}),iconTransformation(
+          extent={{-488,-226},{-468,-206}})));
+  Modelica.Blocks.Interfaces.RealInput T_return_UFH annotation (Placement(
+        transformation(extent={{-492,-170},{-472,-150}}), iconTransformation(
+          extent={{-488,-302},{-468,-282}})));
+  Modelica.Blocks.Math.Add add(k2=-1)
+    annotation (Placement(transformation(extent={{-462,-124},{-442,-104}})));
+  Modelica.Blocks.Logical.GreaterThreshold HPMode(threshold=-0.5)
+    annotation (Placement(transformation(extent={{-430,-124},{-410,-104}})));
+  Modelica.Blocks.Interfaces.RealInput T_supply_HP_heat annotation (Placement(
+        transformation(extent={{-492,-194},{-472,-174}}), iconTransformation(
+          extent={{-488,-252},{-468,-232}})));
+  Modelica.Blocks.Interfaces.RealInput T_supply_HP_cool annotation (Placement(
+        transformation(extent={{-492,-214},{-472,-194}}), iconTransformation(
+          extent={{-488,-144},{-468,-124}})));
+  Modelica.Blocks.Interfaces.RealInput power_rod annotation (Placement(
+        transformation(extent={{-492,-230},{-472,-210}}), iconTransformation(
+          extent={{-488,-278},{-468,-258}})));
+  Modelica.Blocks.Math.Gain hr_rel(final k=1/parameterStudy.hr_nominal_power)
+    "Divide efficiency"
+    annotation (Placement(transformation(extent={{-448,-230},{-428,-210}})));
+  Modelica.Blocks.Logical.Switch TsupplyHP
+    annotation (Placement(transformation(extent={{-392,-202},{-372,-182}})));
+  Modelica.Blocks.Interfaces.RealInput ts_gains_human annotation (Placement(
+        transformation(extent={{-490,-48},{-470,-28}}), iconTransformation(
+          extent={{-490,-48},{-470,-28}})));
+  Modelica.Blocks.Interfaces.RealInput ts_gains_dev annotation (Placement(
+        transformation(extent={{-490,-64},{-470,-44}}), iconTransformation(
+          extent={{-490,-64},{-470,-44}})));
+  Modelica.Blocks.Interfaces.RealInput ts_gains_light annotation (Placement(
+        transformation(extent={{-490,-84},{-470,-64}}), iconTransformation(
+          extent={{-488,-84},{-468,-64}})));
+  Subsystems.InputScenario.ReaderTMY3                                   weaDat(
+    filNam=Modelica.Utilities.Files.loadResource("modelica://MA_Pell_SingleFamilyHouse/Data/TRY2015_524528132978_Somm_City_Berlin.mos"),
+    TDryBulSou=AixLib.BoundaryConditions.Types.DataSource.Input,
+    winSpeSou=AixLib.BoundaryConditions.Types.DataSource.Input,
+    HSou=AixLib.BoundaryConditions.Types.RadiationDataSource.File)
+    "Weather data reader"
+    annotation (Placement(transformation(extent={{-380,56},{-340,82}})));
+
+  Modelica.Blocks.Interfaces.RealInput dch_DHW annotation (Placement(
+        transformation(extent={{-488,-328},{-470,-310}}), iconTransformation(
+          extent={{-488,-328},{-470,-310}})));
+equation
+  connect(Electricity.SOC_Bat,SOC_BAT)  annotation (Line(points={{-116,106.4},{
+          188,106.4},{188,100},{490,100}},
+                                     color={0,0,127}));
+  connect(power_to_grid_BAT, Electricity.Pow_BAT_FeedIn) annotation (Line(
+        points={{-480,110},{-372,110},{-372,110.8},{-197.2,110.8}}, color={0,0,
+          127}));
+  connect(ch_BAT, Electricity.Pow_BAT_ChBat) annotation (Line(points={{-480,94},
+          {-358,94},{-358,105.2},{-197.2,105.2}}, color={0,0,127}));
+  connect(power_use_BAT, Electricity.Pow_BAT_Use) annotation (Line(points={{-480,
+          128},{-380,128},{-380,116.4},{-197.2,116.4}}, color={0,0,127}));
+  connect(Electricity.ElectricityFeedIn, FeedIn)
+    annotation (Line(points={{-116,116},{490,116}}, color={0,0,127}));
+  connect(Electricity.ElectricityFromGrid, ElecFromGrid) annotation (Line(
+        points={{-116,125.6},{150,125.6},{150,126},{416,126},{416,136},{490,136}},
+        color={0,0,127}));
+  connect(PV_Distr_Use, Electricity.PV_Distr_Use) annotation (Line(points={{-480,
+          176},{-230,176},{-230,139.6},{-197.2,139.6}}, color={0,0,127}));
+  connect(PV_Distr_FeedIn, Electricity.PV_Distr_FeedIn) annotation (Line(points=
+         {{-480,162},{-236,162},{-236,134},{-197.2,134}}, color={0,0,127}));
+  connect(PV_Distr_ChBat, Electricity.PV_Distr_ChBat) annotation (Line(points={{
+          -480,146},{-242,146},{-242,128.4},{-197.2,128.4}}, color={0,0,127}));
+  connect(Electricity.PV_Pow_Use, PV_Pow_Use) annotation (Line(points={{-116,
+          172},{-70,172},{-70,186},{490,186}},  color={0,0,127}));
+  connect(Electricity.PV_Pow_FeedIn, PV_Pow_FeedIn) annotation (Line(points={{-116,
+          162.4},{-70,162.4},{-70,168},{490,168}},           color={0,0,127}));
+  connect(Electricity.PV_Pow_Ch, PV_Pow_Ch) annotation (Line(points={{-116,
+          151.2},{184,151.2},{184,152},{490,152}},
+                                            color={0,0,127}));
+  connect(Generation.P_el_HP_HR, Electricity.P_el_HP) annotation (Line(points={{-236,
+          -144},{-236,-156},{-252,-156},{-252,86},{-160,86},{-160,96.8}},
+        color={0,0,127}));
+  connect(x_HP_heat, add.u1) annotation (Line(points={{-482,-104},{-470,-104},
+          {-470,-108},{-464,-108}}, color={0,0,127}));
+  connect(x_HP_cool, add.u2) annotation (Line(points={{-482,-122},{-472,-122},
+          {-472,-120},{-464,-120}}, color={0,0,127}));
+  connect(add.y, HPMode.u)
+    annotation (Line(points={{-441,-114},{-432,-114}}, color={0,0,127}));
+  connect(power_rod, hr_rel.u)
+    annotation (Line(points={{-482,-220},{-450,-220}}, color={0,0,127}));
+  connect(HPMode.y, TsupplyHP.u2) annotation (Line(points={{-409,-114},{-404,-114},
+          {-404,-192},{-394,-192}}, color={255,0,255}));
+  connect(T_supply_HP_heat, TsupplyHP.u1)
+    annotation (Line(points={{-482,-184},{-394,-184}}, color={0,0,127}));
+  connect(T_supply_HP_cool, TsupplyHP.u3) annotation (Line(points={{-482,-204},
+          {-458,-204},{-458,-200},{-394,-200}}, color={0,0,127}));
+  connect(ts_T_air, weaDat.TDryBul_in) annotation (Line(points={{-480,80},{-432,
+          80},{-432,80.7},{-382,80.7}}, color={0,0,127}));
+  connect(ts_win_spe, weaDat.winSpe_in) annotation (Line(points={{-480,64},{-382,
+          64},{-382,63.93}}, color={0,0,127}));
+  connect(ts_sol_rad, weaDat.HGloHor_only) annotation (Line(points={{-480,48},{-406,
+          48},{-406,47.29},{-382,47.29}}, color={0,0,127}));
+  connect(dem_elec, MPC_Interface.ElectricityDemand) annotation (Line(points={{-480,32},
+          {-276,32},{-276,44},{-275,44},{-275,57}},                 color={0,0,127}));
+  connect(dem_e_mob, MPC_Interface.EVDemand) annotation (Line(points={{-480,14},
+          {-275,14},{-275,57}},             color={0,0,127}));
+  connect(mFlow_DHW, MPC_Interface.m_flowDHW) annotation (Line(points={{-480,-2},
+          {-276,-2},{-276,22},{-275,22},{-275,57}},             color={0,0,127}));
+  connect(TDem_DHW, MPC_Interface.TDemandDHW) annotation (Line(points={{-480,
+          -24},{-276,-24},{-276,20},{-275,20},{-275,57}},        color={0,0,127}));
+  connect(ts_gains_human, MPC_Interface.intGains[1]) annotation (Line(points={{-480,
+          -38},{-276,-38},{-276,57},{-275,57}},             color={0,0,127}));
+  connect(ts_gains_dev, MPC_Interface.intGains[2]) annotation (Line(points={{-480,
+          -54},{-276,-54},{-276,57},{-275,57}},             color={0,0,127}));
+  connect(ts_gains_light, MPC_Interface.intGains[3]) annotation (Line(points={{-480,
+          -74},{-276,-74},{-276,57},{-275,57}},             color={0,0,127}));
+  connect(weaDat.weaBus, MPC_Interface.weaBus) annotation (Line(
+      points={{-339.5,69.065},{-310.75,69.065},{-310.75,57},{-275,57}},
+      color={255,204,51},
+      thickness=0.5));
+
+  connect(MPC_Interface, Electricity.inputScenBus) annotation (Line(
+      points={{-275,57},{-275,132},{-268,132},{-268,151.6},{-199.6,151.6}},
+      color={255,204,51},
+      thickness=0.5));
+  connect(T_supply_UFH, MPC_Interface.T_supply_UFH) annotation (Line(points={{-482,
+          -140},{-275,-140},{-275,57}}, color={0,0,127}));
+  connect(T_return_UFH, MPC_Interface.T_return_UFH) annotation (Line(points={{-482,
+          -160},{-432,-160},{-432,-166},{-275,-166},{-275,57}}, color={0,0,127}));
+  connect(TsupplyHP.y, MPC_Interface.T_supply_HP) annotation (Line(points={{-371,
+          -192},{-275,-192},{-275,57}}, color={0,0,127}));
+  connect(HPMode.y, MPC_Interface.mode_HP) annotation (Line(points={{-409,-114},
+          {-272,-114},{-272,57},{-275,57}}, color={255,0,255}));
+  connect(dch_DHW, MPC_Interface.dch_DHW) annotation (Line(points={{-479,-319},
+          {-274.905,-319},{-274.905,57.115}},
+                                  color={0,0,127}));
+  connect(hr_rel.y, MPC_Interface.hr_rel) annotation (Line(points={{-427,-220},
+          {-274.905,-220},{-274.905,57.115}}, color={0,0,127}));
+  annotation (experiment(
+      StopTime=86400,
+      Interval=900,
+      Tolerance=1e-07,
+      __Dymola_Algorithm="Dassl"),
+             Icon(coordinateSystem(preserveAspectRatio=false, extent={{-480,-400},
+            {480,180}}),                                       graphics={
+        Rectangle(
+          extent={{-180,-180},{180,70}},
+          lineColor={95,95,95},
+          fillColor={230,51,35},
+          fillPattern=FillPattern.Solid),
+        Polygon(
+          points={{-220,70},{0,178},{220,70},{-220,70}},
+          lineColor={95,95,95},
+          fillColor={145,121,121},
+          fillPattern=FillPattern.Solid),
+        Rectangle(
+          extent={{-128,30},{-62,-16}},
+          lineColor={95,95,95},
+          fillColor={85,170,255},
+          fillPattern=FillPattern.Solid),
+        Rectangle(
+          extent={{72,30},{110,-16}},
+          lineColor={95,95,95},
+          fillColor={85,170,255},
+          fillPattern=FillPattern.Solid),
+        Rectangle(
+          extent={{-24,-96},{24,-180}},
+          lineColor={95,95,95},
+          fillColor={88,59,57},
+          fillPattern=FillPattern.Solid),
+        Rectangle(
+          extent={{74,-104},{112,-150}},
+          lineColor={95,95,95},
+          fillColor={85,170,255},
+          fillPattern=FillPattern.Solid),
+        Rectangle(
+          extent={{-126,-96},{-88,-142}},
+          lineColor={95,95,95},
+          fillColor={85,170,255},
+          fillPattern=FillPattern.Solid)}),                     Diagram(
+        coordinateSystem(preserveAspectRatio=false, extent={{-480,-400},{480,180}})));
+end SFH_FMU_UFH;

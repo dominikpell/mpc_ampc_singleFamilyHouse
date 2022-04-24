@@ -1,0 +1,10 @@
+﻿currWorkingDir = "D:\MA\master-thesis\Dymola_wd";
+libFolder = "D:\MA\master-thesis";
+
+cd(currWorkingDir);
+
+openModel(libFolder+"/AixLib/AixLib/package.mo", changeDirectory = false);
+openModel(libFolder+"/BuildingSystems/BuildingSystems/package.mo", changeDirectory = false);
+openModel(libFolder+"/Dymola_Einfamilienhaus/MA_Pell_SingleFamilyHouse/package.mo", changeDirectory = false);
+openModel(libFolder+"/BuildingEnergySystems/package.mo", changeDirectory = false);
+openModel(libFolder+"/Dymola_Einfamilienhaus/fubic/FubicModelica/package.mo", changeDirectory = false);

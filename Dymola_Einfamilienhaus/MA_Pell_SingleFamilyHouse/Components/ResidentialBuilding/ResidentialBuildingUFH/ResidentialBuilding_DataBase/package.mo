@@ -1,0 +1,5 @@
+within MA_Pell_SingleFamilyHouse.Components.ResidentialBuilding.ResidentialBuildingUFH;
+package ResidentialBuilding_DataBase
+  extends Modelica.Icons.Package;
+
+end ResidentialBuilding_DataBase;

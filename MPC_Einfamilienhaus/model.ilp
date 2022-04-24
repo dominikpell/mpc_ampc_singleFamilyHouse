@@ -1,0 +1,10 @@
+\ Model unknown_copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Minimize
+ 
+Subject To
+ x19205: x11813 >= 322.15
+ x20261: x11813 = 322.1225713589844
+Bounds
+ x11813 free
+End
